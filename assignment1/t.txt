@@ -1,10 +1,10 @@
 total 80
-drwxr-xr-x  6 samasaad  staff    192 Feb  6 15:51 .
-drwxr-xr-x@ 4 samasaad  staff    128 Feb  6 15:51 ..
--rwxr-xr-x  1 samasaad  staff  34456 Feb  6 15:47 shell
--rw-r--r--  1 samasaad  staff   2048 Feb  6 15:47 shell.c
+drwxr-xr-x  6 samasaad  staff    192 Feb  6 21:05 .
+drwxr-xr-x@ 4 samasaad  staff    128 Feb  6 21:05 ..
+-rwxr-xr-x  1 samasaad  staff  34456 Feb  6 21:05 shell
+-rw-r--r--  1 samasaad  staff   2048 Feb  6 21:03 shell.c
 drwxr-xr-x@ 3 samasaad  staff     96 Feb  5 08:47 shell.dSYM
--rw-r--r--  1 samasaad  staff      0 Feb  6 15:51 t.txt
+-rw-r--r--  1 samasaad  staff      0 Feb  6 21:05 t.txt
      March 2025       
 Su Mo Tu We Th Fr Sa  
                    1  

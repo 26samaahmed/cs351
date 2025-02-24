@@ -4,7 +4,34 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <sys/wait.h>
+
 #define ARGUMENTS_SIZE 64
+
+void parse_command(int argc, char *argv[]) {
+
+  if (argc > 1 && strcmp(argv[argc - 1], "ECHO") == 0) {
+    int i = 0;
+    while (strcmp(argv[i], "<" ) != 0 && strcmp(argv[i], ">") != 0 && strcmp(argv[i], "|") != 0 ) {
+        printf("%s ", argv[i]);
+        ++i;
+        if (i >= argc) {
+          break;
+        }
+    }
+    printf("\n");
+  } else {
+    printf("No ECHO was found\n");
+  }
+}
+
+int count_arguments(char* arguments[]) {
+    int count = 0;
+    while (arguments[count] != NULL) {
+        ++count;
+    }
+    return count;
+}
 
 void execute(char **argv)
 {
@@ -73,9 +100,10 @@ int main(int argc, const char *argv[])
     char *arguments[ARGUMENTS_SIZE];
     memset(arguments, 0, ARGUMENTS_SIZE * sizeof(char *));
     parse(buf, arguments);
-    // printf("strlen(arguments[0] is %lu\n", strlen(arguments[0]));
-    // printf("strlen(arguments[1] is %lu\n", strlen(arguments[1]));
-    // printf("strlen(arguments[2] is %lu\n", strlen(arguments[2]));
+    int num_args = count_arguments(arguments);
+    parse_command(num_args, arguments);
+
+
     if (arguments[3] == NULL)
     {
       printf("successfully terminated\n");
@@ -83,7 +111,7 @@ int main(int argc, const char *argv[])
     char **q = arguments;
     while (*q != NULL)
     {
-      printf("arg is %s\n", *q);
+      //printf("arg is %s\n", *q);
       ++q;
     }
     execute(arguments);

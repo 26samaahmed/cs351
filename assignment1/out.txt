@@ -7,11 +7,9 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#define MAX_COMMAND_LENGTH 256
 
 #define ARGS_SIZE   64
-const char* LOCAL_CMDS[] = {"cd", "mkdir", "exit", "help", "!!"};
-char recent_command[MAX_COMMAND_LENGTH] = "";
+const char* LOCAL_CMDS[] = {"cd", "mkdir", "exit", "help"};
 
 int count_arguments(char* arguments[]) {
   int count = 0;
@@ -132,48 +130,21 @@ void parse_redirect(char** argv, int* fin, int* fout) {
 int execute_local_command(char** args) { 
     int rc = 0;
     const char* cmd = args[0];
-
     if (strncmp(cmd, "exit", 4) == 0) { 
-        fprintf(stdout, "Exiting shell...\n");
+        fprintf(stdout, "exiting shell...\n");
         exit(0);
     } else if (strncmp(cmd, "help", 4) == 0) { 
         fprintf(stdout, "Welcome to my shell program. "
-                        "Type any system cmd or exit or cd or mkdir\n");     
+               "Type any system cmd or exit or cd or mkdir\n");     
     } else if (strncmp(cmd, "cd", 2) == 0) { 
         rc = chdir(args[1]);
-        if (rc == 0) { printf("Changing directory to %s\n", args[1]); }
+        if (rc == 0) { printf("changing directory to %s\n", args[1]); }
     } else if (strncmp(cmd, "mkdir", 5) == 0) { 
-        rc = mkdir(args[1], 0755);  // Owner, group rx, public rx
-        if (rc == 0) { printf("Making new directory %s\n", args[1]); }
-    } else if (strncmp(cmd, "!!", 2) == 0) { 
-        if (strlen(recent_command) == 0) {
-            fprintf(stdout, "No recent command to repeat.\n");
-        } else {
-            fprintf(stdout, "Repeating last command: %s\n", recent_command);
- // Simulate executing the last command
-            char* args_copy[MAX_COMMAND_LENGTH / 2]; // Assuming arguments are space-separated
-            int i = 0;
-            char* token = strtok(recent_command, " ");
-            while (token != NULL) {
-                args_copy[i++] = token;
-                token = strtok(NULL, " ");
-            }
-            args_copy[i] = NULL;
-
-            rc = execute_local_command(args_copy); // Recursively execute the last command
-        }
-    } else { 
-        fprintf(stderr, "Unknown local command %s\n", cmd);
+        rc = mkdir(args[1], 0755);  // owner, group rx, public rx
+        if (rc == 0) { printf("making new directory %s\n", args[1]); }
     }
-
-    // Store the current command as the recent command
-    if (strncmp(cmd, "!!", 2) != 0) { // Do not overwrite if the command is !!
-        strncpy(recent_command, cmd, MAX_COMMAND_LENGTH - 1);
-        recent_command[MAX_COMMAND_LENGTH - 1] = '\0'; // Ensure null termination
-    }
-
     return rc;
-} 
+}
 
 int execute(char** args, int fin, int fout) { 
     int ex_rc = 0;
@@ -224,7 +195,6 @@ int run_shell(int argc, const char** argv) {
         parse(cmd, args);     
         int num_args = count_arguments(args);
         parse_command(num_args, args);
-       // recent_command[i++] = parse_command;
                 // after calling parse_redirect_pipe(...)      
                 // args is now [pcal, pjun, p2020, NULL]; fin is open("out.txt", ...);
         parse_io(num_args, args);

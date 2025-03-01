@@ -82,106 +82,102 @@ void strings_print(char *args[], int fin, int fout)
     printf("============================\n");
 }
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-
 int execute(char **args, int fin, int fout);
 
 void parse_pipe(int argc, char *argv[])
 {
-    if (argc < 3 || strcmp(argv[argc - 1], "PIPE") != 0)
-    {
-        fprintf(stderr, "Error: Last argument must be 'PIPE'\n");
-        return;
-    }
+    // if (argc < 3 || strcmp(argv[argc - 1], "PIPE") != 0)
+    // {
+    //  fprintf(stderr, "Error: Last argument must be 'PIPE'\n");
+    // return;
+    //}
 
-    argv[argc - 1] = NULL; // Remove "PIPE" from the argument list
-    argc--;
-
-    int num_cmds = 1;
-    for (int i = 0; i < argc; i++)
+    if (strcmp(argv[argc - 1], "PIPE") == 0)
     {
-        if (strcmp(argv[i], "|") == 0)
-            num_cmds++;
-    }
+        argv[argc - 1] = NULL; // Remove "PIPE" from the argument list
+        argc--;
 
-    int pipe_fds[2 * (num_cmds - 1)];
-    for (int i = 0; i < num_cmds - 1; i++)
-    {
-        if (pipe(pipe_fds + 2 * i) < 0)
+        int num_cmds = 1;
+        for (int i = 0; i < argc; i++)
         {
-            perror("pipe");
-            exit(EXIT_FAILURE);
+            if (strcmp(argv[i], "|") == 0)
+                num_cmds++;
         }
-    }
 
-    int cmd_start = 0;
-    int fin = -1, fout = -1;
-    for (int i = 0, cmd_idx = 0; i <= argc; i++)
-    {
-        if (i == argc || strcmp(argv[i], "|") == 0)
+        int pipe_fds[2 * (num_cmds - 1)];
+        for (int i = 0; i < num_cmds - 1; i++)
         {
-            argv[i] = NULL; // Terminate the current command args list
-
-            // Set input and output for the command
-            if (cmd_idx == 0)
+            if (pipe(pipe_fds + 2 * i) < 0)
             {
-                fin = -1; // First command, so use default input (keyboard)
+                perror("pipe");
+                exit(EXIT_FAILURE);
             }
-            else
-            {
-                fin = pipe_fds[2 * (cmd_idx - 1)]; // Read from previous pipe
-            }
-
-            if (cmd_idx < num_cmds - 1)
-            {
-                fout = pipe_fds[2 * cmd_idx + 1]; // Write to the next pipe
-            }
-            else
-            {
-                fout = -1; // Last command, so use default stdout
-            }
-            strcpy(command_array[cmd_idx], argv[cmd_start]);
-            execute(&argv[cmd_start], fin, fout);
-
-            // Close used pipe ends in parent process
-            if (fin != -1)
-            {
-                close(fin);
-            }
-            if (fout != -1)
-            {
-                close(fout);
-            }
-
-            cmd_start = i + 1; // Move to the next command
-            cmd_idx++;
         }
-    }
 
-    // loop through command_array in reverse order
-    int i = num_cmds - 1;
-    while (i > 0)
-    {
-        printf("PIPE %s\n", command_array[i]);
-        i--;
-    }
-    printf("\n");
+        int cmd_start = 0;
+        int fin = -1, fout = -1;
+        for (int i = 0, cmd_idx = 0; i <= argc; i++)
+        {
+            if (i == argc || strcmp(argv[i], "|") == 0)
+            {
+                argv[i] = NULL; // Terminate the current command args list
 
-    // Close all pipe ends in the parent
-    for (int i = 0; i < 2 * (num_cmds - 1); i++)
-    {
-        close(pipe_fds[i]);
-    }
+                // Set input and output for the command
+                if (cmd_idx == 0)
+                {
+                    fin = -1; // First command, so use default input (keyboard)
+                }
+                else
+                {
+                    fin = pipe_fds[2 * (cmd_idx - 1)]; // Read from previous pipe
+                }
 
-    // Wait for all child processes to finish
-    for (int i = 0; i < num_cmds; i++)
-    {
-        wait(NULL);
+                if (cmd_idx < num_cmds - 1)
+                {
+                    fout = pipe_fds[2 * cmd_idx + 1]; // Write to the next pipe
+                }
+                else
+                {
+                    fout = -1; // Last command, so use default stdout
+                }
+                strcpy(command_array[cmd_idx], argv[cmd_start]);
+                execute(&argv[cmd_start], fin, fout);
+
+                // Close used pipe ends in parent process
+                if (fin != -1)
+                {
+                    close(fin);
+                }
+                if (fout != -1)
+                {
+                    close(fout);
+                }
+
+                cmd_start = i + 1; // Move to the next command
+                cmd_idx++;
+            }
+        }
+
+        // loop through command_array in reverse order
+        int i = 1;
+        while (i < num_cmds)
+        {
+            printf("PIPE %s ", command_array[i]);
+            i++;
+        }
+        printf("\n");
+
+        // Close all pipe ends in the parent
+        for (int i = 0; i < 2 * (num_cmds - 1); i++)
+        {
+            close(pipe_fds[i]);
+        }
+
+        // Wait for all child processes to finish
+        for (int i = 0; i < num_cmds; i++)
+        {
+            wait(NULL);
+        }
     }
 }
 

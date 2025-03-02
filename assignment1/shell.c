@@ -13,7 +13,7 @@
 
 #define ARGS_SIZE 64
 const char *LOCAL_CMDS[] = {"cd", "mkdir", "exit", "help", "!!"};
-char recent_command[MAX_COMMAND_LENGTH] = "";
+char recent_command[BUFSIZ] = "";
 char command_array[MAX_STRINGS][MAX_LENGTH];
 
 int count_arguments(char *arguments[])
@@ -254,7 +254,7 @@ int execute_local_command(char **args)
 
     if (strncmp(cmd, "exit", 4) == 0)
     {
-        fprintf(stdout, "Exiting shell...\n");
+        fprintf(stdout, "exiting shell...\n");
         exit(0);
     }
     else if (strncmp(cmd, "help", 4) == 0)
@@ -267,50 +267,56 @@ int execute_local_command(char **args)
         rc = chdir(args[1]);
         if (rc == 0)
         {
-            printf("Changing directory to %s\n", args[1]);
+            printf("changing directory to %s\n", args[1]);
+        }
+        else
+        {
+            fprintf(stderr, "failed to change directory to \'%s\'\n", args[1]);
         }
     }
     else if (strncmp(cmd, "mkdir", 5) == 0)
     {
-        rc = mkdir(args[1], 0755); // Owner, group rx, public rx
+        rc = mkdir(args[1], 0755);
         if (rc == 0)
         {
-            printf("Making new directory %s\n", args[1]);
+            printf("making new directory %s\n", args[1]);
+        }
+        else
+        {
+            fprintf(stderr, "failed to make directory \'%s\'\n", args[1]);
         }
     }
     else if (strncmp(cmd, "!!", 2) == 0)
     {
         if (strlen(recent_command) == 0)
         {
-            fprintf(stdout, "No recent command to repeat.\n");
+            fprintf(stderr, "No recent command to execute!\n");
         }
         else
         {
-            fprintf(stdout, "Repeating last command: %s\n", recent_command);
-            // Simulate executing the last command
-            char *args_copy[MAX_COMMAND_LENGTH / 2]; // Assuming arguments are space-separated
-            int i = 0;
-            char *token = strtok(recent_command, " ");
-            while (token != NULL)
-            {
-                args_copy[i++] = token;
-                token = strtok(NULL, " ");
-            }
-            args_copy[i] = NULL;
+            printf("Executing recent command: %s\n", recent_command);
+            char *recent_args[ARGS_SIZE];
+            int fin = -1, fout = -1;
 
-            rc = execute_local_command(args_copy); // Recursively execute the last command
+            // **Reparse the command** to handle `>`, `<`, and `|` properly
+            parse(recent_command, recent_args);
+            int num_args = count_arguments(recent_args);
+            parse_io(num_args, recent_args);
+            parse_pipe(num_args, recent_args);
+            parse_redirect(recent_args, &fin, &fout);
+
+            execute(recent_args, fin, fout);
         }
     }
-    else
-    {
-        fprintf(stderr, "Unknown local command %s\n", cmd);
-    }
 
-    // Store the current command as the recent command
     if (strncmp(cmd, "!!", 2) != 0)
-    { // Do not overwrite if the command is !!
-        strncpy(recent_command, cmd, MAX_COMMAND_LENGTH - 1);
-        recent_command[MAX_COMMAND_LENGTH - 1] = '\0'; // Ensure null termination
+    {
+        strncpy(recent_command, args[0], BUFSIZ - 1);
+        for (int i = 1; args[i] != NULL; i++)
+        {
+            strncat(recent_command, " ", BUFSIZ - strlen(recent_command) - 1);
+            strncat(recent_command, args[i], BUFSIZ - strlen(recent_command) - 1);
+        }
     }
 
     return rc;
@@ -376,20 +382,20 @@ int run_shell(int argc, const char **argv)
         fout = -1;
 
         prompt_get_command(cmd);
-        // after calling parse(...)
-        // writing in pseudo Python syntax, pcal == ptr->"cal", p> == ptr->">"
-        // e.g., cal jun 2020 --> args = [pcal, pjun, p2020, p>, pout.txt, NULL]
+
+        // Store command before modifying args
+        if (strncmp(cmd, "!!", 2) != 0 && strlen(cmd) > 0)
+        {
+            strncpy(recent_command, cmd, BUFSIZ - 1);
+        }
+
         parse(cmd, args);
         int num_args = count_arguments(args);
         parse_command(num_args, args);
-        // recent_command[i++] = parse_command;
-        // after calling parse_redirect_pipe(...)
-        // args is now [pcal, pjun, p2020, NULL]; fin is open("out.txt", ...);
         parse_io(num_args, args);
-        parse_pipe(num_args, args);
         parse_redirect(args, &fin, &fout);
+        parse_pipe(num_args, args);
 
-        // length_print(args);
         strings_print(args, fin, fout);
 
         if (is_local_command(cmd, LOCAL_CMDS, sizeof(LOCAL_CMDS) / sizeof(char *)))

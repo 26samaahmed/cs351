@@ -10,14 +10,11 @@
 #define MAX_COMMAND_LENGTH 256
 #define MAX_LENGTH 100
 #define MAX_STRINGS 5
-
 #define ARGS_SIZE 64
+
 const char *LOCAL_CMDS[] = {"cd", "mkdir", "exit", "help", "!!"};
 char recent_command[BUFSIZ] = "";
 char command_array[MAX_STRINGS][MAX_LENGTH];
-char *prev_args[1024];
-
-#define MAX_CMD_LEN 1024
 
 int count_arguments(char *arguments[])
 {
@@ -29,15 +26,19 @@ int count_arguments(char *arguments[])
     return count;
 }
 
-void parse_command(int argc, char *argv[])
+// Example command: cal feb 2025 > t.txt ECHO
+void parse_echo(int argc, char *argv[])
 {
     if (argc > 1 && strcmp(argv[argc - 1], "ECHO") == 0)
     {
         int i = 0;
+        // Loop until we reach any of the redirection or pipe symbols
         while (strcmp(argv[i], "<") != 0 && strcmp(argv[i], ">") != 0 && strcmp(argv[i], "|") != 0)
         {
             printf("%s ", argv[i]);
             ++i;
+
+            // Ensure we don't go out of bounds
             if (i >= argc)
             {
                 break;
@@ -47,11 +48,14 @@ void parse_command(int argc, char *argv[])
     }
 }
 
+// Example command: cal feb 2025 > t.txt IO (if t.txt exists)
 void parse_io(int argc, char *argv[])
 {
     if (argc > 1 && strcmp(argv[argc - 1], "IO") == 0)
     {
         int i = 0;
+
+        // Loop until we reach any of the redirection symbols
         while (strcmp(argv[i], "<") != 0 && strcmp(argv[i], ">") != 0)
         {
             ++i;
@@ -86,19 +90,19 @@ void strings_print(char *args[], int fin, int fout)
 
 int execute(char **args, int fin, int fout);
 
+// Example command: cat shell.c | wc PIPE
 void parse_pipe(int argc, char *argv[])
 {
-    // if (argc < 3 || strcmp(argv[argc - 1], "PIPE") != 0)
-    // {
-    //     fprintf(stderr, "Error: Last argument must be 'PIPE'\n");
-    //     return;
-    // }
-    if (strcmp(argv[argc - 1], "PIPE") == 0)
+    // Checking if the last argument is "PIPE"
+    if (argc > 1 && strcmp(argv[argc - 1], "PIPE") == 0)
     {
-        argv[argc - 1] = NULL; // Remove "PIPE" from the argument list
+        // Removing "PIPE" from the argument list to avoid executing it
+        argv[argc - 1] = NULL;
         argc--;
 
         int num_cmds = 1;
+
+        // Count the number of commands in the argument list by counting the number of pipes since each pipe separates two commands
         for (int i = 0; i < argc; i++)
         {
             if (strcmp(argv[i], "|") == 0)
@@ -121,21 +125,21 @@ void parse_pipe(int argc, char *argv[])
         {
             if (i == argc || strcmp(argv[i], "|") == 0)
             {
-                argv[i] = NULL; // Terminate the current command args list
+                argv[i] = NULL; // Terminating the current command args list
 
-                // Set input and output for the command
+                // Setting input and output for the command
                 if (cmd_idx == 0)
                 {
-                    fin = -1; // First command, so use default input (keyboard)
+                    fin = -1; // First command, so use default input which is keyboard
                 }
                 else
                 {
-                    fin = pipe_fds[2 * (cmd_idx - 1)]; // Read from previous pipe
+                    fin = pipe_fds[2 * (cmd_idx - 1)]; // Reading from previous pipe
                 }
 
                 if (cmd_idx < num_cmds - 1)
                 {
-                    fout = pipe_fds[2 * cmd_idx + 1]; // Write to the next pipe
+                    fout = pipe_fds[2 * cmd_idx + 1]; // Writing to the next pipe
                 }
                 else
                 {
@@ -144,7 +148,7 @@ void parse_pipe(int argc, char *argv[])
                 strcpy(command_array[cmd_idx], argv[cmd_start]);
                 execute(&argv[cmd_start], fin, fout);
 
-                // Close used pipe ends in parent process
+                // Closinf used pipe ends in parent process
                 if (fin != -1)
                 {
                     close(fin);
@@ -159,7 +163,7 @@ void parse_pipe(int argc, char *argv[])
             }
         }
 
-        // loop through command_array in reverse order
+        // Looping through commands array to print the commands if it's not the first command
         int i = 1;
         while (i < num_cmds)
         {
@@ -168,13 +172,13 @@ void parse_pipe(int argc, char *argv[])
         }
         printf("\n");
 
-        // Close all pipe ends in the parent
+        // Closinf all pipe ends in the parent
         for (int i = 0; i < 2 * (num_cmds - 1); i++)
         {
             close(pipe_fds[i]);
         }
 
-        // Wait for all child processes to finish
+        // Waitinf for all child processes to finish
         for (int i = 0; i < num_cmds; i++)
         {
             wait(NULL);
@@ -182,18 +186,19 @@ void parse_pipe(int argc, char *argv[])
     }
 }
 
+// Example command: cal mar 2025 | wc
 int execute_with_pipe(char **args_one, char **args_two)
 {
     int pipe_fd[2]; // Array to store pipe file descriptors
 
-    // Create the pipe
+    // Creating the pipe
     if (pipe(pipe_fd) == -1)
     {
         perror("Pipe failed");
         exit(1);
     }
 
-    // Fork the first child process for Program A (e.g., cal)
+    // Forking the first child process for Program A which is the cal command
     pid_t pid1 = fork();
     if (pid1 < 0)
     {
@@ -202,13 +207,13 @@ int execute_with_pipe(char **args_one, char **args_two)
     }
 
     if (pid1 == 0)
-    { // Child process 1: Execute Program A
-        // Redirect stdout to the write end of the pipe
+    { // Child process 1: Executing Program A
+        // Redirecting stdout to the write end of the pipe
         dup2(pipe_fd[1], STDOUT_FILENO);
         close(pipe_fd[0]); // Close unused read end
         close(pipe_fd[1]); // Close pipe write end after dup2
 
-        // Execute the first command
+        // Executing the first command
         if (execvp(args_one[0], args_one) == -1)
         {
             perror("execvp failed for Program A");
@@ -216,7 +221,7 @@ int execute_with_pipe(char **args_one, char **args_two)
         }
     }
 
-    // Fork the second child process for Program B (e.g., wc)
+    // Forking the second child process for Program B
     pid_t pid2 = fork();
     if (pid2 < 0)
     {
@@ -226,12 +231,12 @@ int execute_with_pipe(char **args_one, char **args_two)
 
     if (pid2 == 0)
     { // Child process 2: Execute Program B
-        // Redirect stdin to the read end of the pipe
+        // Redirecting stdin to the read end of the pipe
         dup2(pipe_fd[0], STDIN_FILENO);
         close(pipe_fd[1]); // Close unused write end
         close(pipe_fd[0]); // Close pipe read end after dup2
 
-        // Execute the second command
+        // Executing the second command
         if (execvp(args_two[0], args_two) == -1)
         {
             perror("execvp failed for Program B");
@@ -239,11 +244,11 @@ int execute_with_pipe(char **args_one, char **args_two)
         }
     }
 
-    // Parent process: Close both ends of the pipe
+    // Parent process: Closing both ends of the pipe
     close(pipe_fd[0]); // Close read end
     close(pipe_fd[1]); // Close write end
 
-    // Wait for both child processes to complete
+    // Waiting for both child processes to complete
     waitpid(pid1, NULL, 0);
     waitpid(pid2, NULL, 0);
 
@@ -355,7 +360,7 @@ int execute_local_command(char **args)
             fprintf(stderr, "failed to make directory \'%s\'\n", args[1]);
         }
     }
-    else if (strncmp(cmd, "!!", 2) == 0)
+    else if (strncmp(cmd, "!!", 2) == 0) // Executing last command if !! is entered
     {
         if (recent_command[0] == '\0')
         {
@@ -363,7 +368,7 @@ int execute_local_command(char **args)
             return 1;
         }
 
-        printf("Executing recent command: %s\n", recent_command);
+        printf("Executing recent command -> %s\n", recent_command);
 
         char *temp_args[ARGS_SIZE];
         int fin = -1, fout = -1;
@@ -378,7 +383,7 @@ int execute_local_command(char **args)
 
         int num_args = count_arguments(temp_args);
 
-        // Reapply parsing for redirection and pipes
+        // Reapplying parsing for redirection and pipes
         parse_redirect(temp_args, &fin, &fout);
         parse_pipe(num_args, temp_args);
 
@@ -392,7 +397,7 @@ int execute_local_command(char **args)
             return 1;
         }
 
-        // Update recent_command **before** executing
+        // Updating recent_command before executing
         strncpy(recent_command, recent_command, BUFSIZ - 1);
         recent_command[BUFSIZ - 1] = '\0';
 
@@ -462,8 +467,6 @@ int run_shell(int argc, const char **argv)
         fout = -1;
 
         prompt_get_command(cmd);
-
-        // Handle !!
         if (strncmp(cmd, "!!", 2) == 0)
         {
             if (recent_command[0] == '\0')
@@ -471,7 +474,7 @@ int run_shell(int argc, const char **argv)
                 fprintf(stderr, "No recent command to execute\n");
                 continue;
             }
-            printf("Executing recent command: %s\n", recent_command);
+            printf("Executing recent command -> %s\n", recent_command);
             strncpy(cmd, recent_command, BUFSIZ - 1);
             cmd[BUFSIZ - 1] = '\0';
         }
@@ -483,24 +486,23 @@ int run_shell(int argc, const char **argv)
 
         parse(cmd, args);
         int num_args = count_arguments(args);
-        parse_command(num_args, args);
+        parse_echo(num_args, args);
         parse_io(num_args, args);
         parse_pipe(num_args, args);
         parse_redirect(args, &fin, &fout);
-
         strings_print(args, fin, fout);
 
-        // Detect pipes in the command
-        char **pipe_pos = args;
+        // Detecting pipes in the command
+        char **pipe_position = args;
         int pipe_index = 0;
-        while (*pipe_pos != NULL && strcmp(*pipe_pos, "|") != 0)
+        while (*pipe_position != NULL && strcmp(*pipe_position, "|") != 0)
         {
-            pipe_pos++;
+            pipe_position++;
             pipe_index++;
         }
 
         // If a pipe is detected, call execute_with_pipe
-        if (*pipe_pos != NULL)
+        if (*pipe_position != NULL)
         {
             char *args_one[1024];
             for (int i = 0; i < pipe_index; i++)
@@ -509,7 +511,7 @@ int run_shell(int argc, const char **argv)
             }
             args_one[pipe_index] = NULL;
 
-            char **args_two = pipe_pos + 1;
+            char **args_two = pipe_position + 1;
             execute_with_pipe(args_one, args_two);
             continue;
         }
@@ -532,6 +534,5 @@ int run_shell(int argc, const char **argv)
 int main(int argc, const char *argv[])
 {
     return run_shell(argc, argv);
-
     return 0;
 }
